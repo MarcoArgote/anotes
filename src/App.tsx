@@ -426,9 +426,7 @@ function App() {
   const [excelMode, setExcelMode] = useState<'single' | 'separate'>('separate')
   const [errorMessage, setErrorMessage] = useState<string>('')
   const [statusMessage, setStatusMessage] = useState<string>('')
-  const [generateMonths, setGenerateMonths] = useState<number[]>(() =>
-    Array.from({ length: 12 }, (_, i) => i + 1),
-  )
+  const [generateMonths, setGenerateMonths] = useState<number[]>(() => [today.getMonth() + 1])
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(notes))
