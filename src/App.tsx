@@ -59,14 +59,26 @@ const getMonthKey = (dateText: string) => {
 const getMonthLabel = (monthKey: string) => {
   const [year, month] = monthKey.split('-')
   const monthNumber = Number(month)
-  const names: Record<number, string> = {
-    1: 'Enero',
-    2: 'Febrero',
-  }
-  return `${names[monthNumber] ?? 'Mes'} ${year}`
+  return `${MONTH_NAMES[monthNumber] ?? 'Mes'} ${year}`
 }
 
-const getAllowedMonths = (year: number) => [`${year}-01`, `${year}-02`]
+const MONTH_NAMES: Record<number, string> = {
+  1: 'Enero',
+  2: 'Febrero',
+  3: 'Marzo',
+  4: 'Abril',
+  5: 'Mayo',
+  6: 'Junio',
+  7: 'Julio',
+  8: 'Agosto',
+  9: 'Septiembre',
+  10: 'Octubre',
+  11: 'Noviembre',
+  12: 'Diciembre',
+}
+
+const getAllowedMonths = (year: number) =>
+  Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`)
 
 const pad = (value: number) => String(value).padStart(2, '0')
 
@@ -75,7 +87,7 @@ const randomInt = (min: number, max: number) =>
 
 const pickRandom = <T,>(items: T[]) => items[randomInt(0, items.length - 1)]
 
-const createRandomNotesForJanFeb = (year: number) => {
+const createRandomNotesForYear = (year: number, months?: number[]) => {
   const notes: NoteItem[] = []
   const destinationsWithoutDeposito = [...CLIENTES, ...ZONAS.filter((z) => z !== DEPOSITO)]
   let sequence = 1
@@ -165,7 +177,11 @@ const createRandomNotesForJanFeb = (year: number) => {
     }
   }
 
-  for (const month of [1, 2]) {
+  const monthsToGenerate = months && months.length > 0
+    ? months
+    : Array.from({ length: 12 }, (_, i) => i + 1)
+
+  for (const month of monthsToGenerate) {
     const daysInMonth = new Date(year, month, 0).getDate()
 
     for (let day = 1; day <= daysInMonth; day += 1) {
@@ -393,12 +409,12 @@ function App() {
 
   const [notes, setNotes] = useState<NoteItem[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
-    if (!saved) return createRandomNotesForJanFeb(currentYear)
+    if (!saved) return createRandomNotesForYear(currentYear)
 
     try {
       return JSON.parse(saved) as NoteItem[]
     } catch {
-      return createRandomNotesForJanFeb(currentYear)
+      return createRandomNotesForYear(currentYear)
     }
   })
   const [selectedMonth, setSelectedMonth] = useState<string>(initialMonth)
@@ -410,6 +426,9 @@ function App() {
   const [excelMode, setExcelMode] = useState<'single' | 'separate'>('separate')
   const [errorMessage, setErrorMessage] = useState<string>('')
   const [statusMessage, setStatusMessage] = useState<string>('')
+  const [generateMonths, setGenerateMonths] = useState<number[]>(() =>
+    Array.from({ length: 12 }, (_, i) => i + 1),
+  )
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(notes))
@@ -425,7 +444,7 @@ function App() {
     event.preventDefault()
 
     if (!allowedMonths.includes(monthFromDate)) {
-      setErrorMessage('Solo se permiten registros de Enero y Febrero del año actual.')
+      setErrorMessage('Solo se permiten registros del año actual.')
       return
     }
 
@@ -452,11 +471,17 @@ function App() {
   }
 
   const handleGenerateRandomData = () => {
-    const generated = createRandomNotesForJanFeb(currentYear)
+    const generated = createRandomNotesForYear(currentYear, generateMonths)
     setNotes(generated)
-    setSelectedMonth(`${currentYear}-01`)
+    const firstMonth = generateMonths && generateMonths.length > 0 ? generateMonths[0] : 1
+    setSelectedMonth(`${currentYear}-${String(firstMonth).padStart(2, '0')}`)
     setErrorMessage('')
-    setStatusMessage('Se generaron anotes aleatorios para Enero y Febrero.')
+    if (!generateMonths || generateMonths.length === 12) {
+      setStatusMessage('Se generaron anotes aleatorios para el año actual.')
+    } else {
+      const names = generateMonths.map((m) => MONTH_NAMES[m]).filter(Boolean)
+      setStatusMessage(`Se generaron anotes aleatorios para: ${names.join(', ')}.`)
+    }
   }
 
   const handleClearNotes = () => {
@@ -588,6 +613,24 @@ function App() {
           </label>
 
           <label>
+            Meses a generar
+            <select
+              multiple
+              value={generateMonths.map(String)}
+              onChange={(e) => {
+                const selected = Array.from(e.target.selectedOptions).map((o) => Number(o.value))
+                setGenerateMonths(selected)
+              }}
+            >
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                <option key={m} value={m}>
+                  {MONTH_NAMES[m]}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
             Cantidad
             <input
               type="number"
@@ -636,7 +679,7 @@ function App() {
           <div className="form-actions">
             <button type="submit">Guardar anote</button>
             <button type="button" className="secondary" onClick={handleGenerateRandomData}>
-              Generar enero/febrero al azar
+              Generar anotes aleatorios
             </button>
             <button type="button" className="secondary danger" onClick={handleClearNotes}>
               Limpiar anotes
